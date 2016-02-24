@@ -55,7 +55,7 @@ def query_ipa(usernames):
     for username in usernames:
         try:
             yield parse_freeipa_output(
-                subprocess.check_output(['ipa', 'user-show', username],
+                subprocess.check_output(['ipa', 'user-show', '--all', username],
                                         stderr=subprocess.STDOUT)
             )
         except subprocess.CalledProcessError:
