@@ -107,6 +107,9 @@ def main(filename):
                            stdout=DEV_NULL, stderr=DEV_NULL) != 0:
             changes['group-add'][group] = []
 
+    if not any(changes.itervalues()):
+        print('No changes.')
+        exit()
 
     print('The following changes will be applied:')
     print('  - Added users: {}'.format(len(changes['user-add'])))
