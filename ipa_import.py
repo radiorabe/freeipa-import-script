@@ -3,6 +3,7 @@ from __future__ import print_function
 
 import csv
 import collections
+import os
 import subprocess
 import sys
 
@@ -27,6 +28,8 @@ IPA_CMDLINE_MAP = {
     'telephone_number': 'phone',
     'mobile_telephone_number': 'mobile',
 }
+
+DEV_NULL = open(os.devnull, 'wb')
 
 
 def read_csv_file(filename):
@@ -65,6 +68,7 @@ def main(filename):
     changes = {
         'user-mod': {},
         'user-add': {},
+        'group-add': collections.defaultdict(list),
         'group-add-member': collections.defaultdict(list),
         'group-remove-member': collections.defaultdict(list),
     }
@@ -98,9 +102,16 @@ def main(filename):
             changes['group-remove-member'][group]\
                 .append('--users={}'.format(user))
 
-    print('The following changes are about to be applied:')
+    for group in changes['group-add-member']:
+        if subprocess.call(['ipa', 'group-show', group],
+                           stdout=DEV_NULL, stderr=DEV_NULL) != 0:
+            changes['group-add'][group] = []
+
+
+    print('The following changes will be applied:')
     print('  - Added users: {}'.format(len(changes['user-add'])))
     print('  - Modified users: {}'.format(len(changes['user-mod'])))
+    print('  - Added groups: {}'.format(len(changes['group-add'])))
     print('  - Adding users to groups: {}'
           .format(len(changes['group-add-member'])))
     print('  - Removing users from groups: {}'
@@ -112,8 +123,8 @@ def main(filename):
             exit(2)
         elif answer.lower() == 'y':
             # order of operations is important
-            for command in ['user-add', 'user-mod', 'group-add-member',
-                            'group-remove-member']:
+            for command in ['user-add', 'user-mod', 'group-add',
+                            'group-add-member', 'group-remove-member']:
                 for primary_key, args in changes[command].iteritems():
                     subprocess.call(['ipa', '--no-prompt', command, primary_key]
                                     + args  )
