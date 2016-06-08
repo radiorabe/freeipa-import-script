@@ -7,10 +7,17 @@ import os
 import subprocess
 import sys
 
+##################
+# Config Section #
+##################
 
+# Groups that users get added to automatically
 DEFAULT_GROUPS = ['ipausers']
+
+# Character that separates groups in csv field
 GROUP_SEP = '/'
 
+# Mapping CSV file column number to named properties
 CSV_MAP = {
     'member_of_groups': 4,
     'user_login': 5,
@@ -21,6 +28,7 @@ CSV_MAP = {
     'mobile_telephone_number': 10,
 }
 
+# List of used IPA fields with their corresponding command line tool flag name
 IPA_CMDLINE_MAP = {
     'first_name': 'first',
     'last_name': 'last',
@@ -29,10 +37,16 @@ IPA_CMDLINE_MAP = {
     'mobile_telephone_number': 'mobile',
 }
 
+
+################
+# Code Section #
+################
+
 DEV_NULL = open(os.devnull, 'wb')
 
 
 def read_csv_file(filename):
+    """Read the contents of a CVS file into a dict"""
     with open(filename) as file:
         csv_reader = csv.reader(file)
         next(csv_reader)  # skip header
@@ -44,6 +58,7 @@ def read_csv_file(filename):
 
 
 def parse_freeipa_output(output):
+    """Parse the output from the FreeIPA command line tool"""
     entry = {}
     for line in output.strip().split('\n'):
         key, val = line.split(':', 1)
@@ -52,6 +67,7 @@ def parse_freeipa_output(output):
 
 
 def query_ipa(usernames):
+    """Query user information with the FreeIPA command line tool"""
     for username in usernames:
         try:
             yield parse_freeipa_output(
@@ -62,13 +78,11 @@ def query_ipa(usernames):
             yield {}
 
 
-def main(filename):
-    csv_entries = list(read_csv_file(filename))
-    ipa_entries = query_ipa(entry['user_login'] for entry in csv_entries)
+def find_user_differences(csv_entries, ipa_entries):
+    """"""
     changes = {
         'user-mod': {},
         'user-add': {},
-        'group-add': collections.defaultdict(list),
         'group-add-member': collections.defaultdict(list),
         'group-remove-member': collections.defaultdict(list),
     }
@@ -102,10 +116,32 @@ def main(filename):
             changes['group-remove-member'][group]\
                 .append('--users={}'.format(user))
 
+
+def find_group_changes(user_changes):
+    """Find newly added groups in changes"""
+    changes = collections.defaultdict(list)
     for group in changes['group-add-member']:
         if subprocess.call(['ipa', 'group-show', group],
                            stdout=DEV_NULL, stderr=DEV_NULL) != 0:
-            changes['group-add'][group] = []
+            changes[group] = []
+
+
+def commit_changes(changes):
+    """Call FreeIPA command line tool to apply changes"""
+    # order of operations is important
+    for command in ['user-add', 'user-mod', 'group-add',
+                    'group-add-member', 'group-remove-member']:
+        for primary_key, args in changes[command].iteritems():
+            subprocess.call(['ipa', '--no-prompt', command, primary_key]
+                            + args  )
+
+
+def main(filename):
+    csv_entries = list(read_csv_file(filename))
+    ipa_entries = query_ipa(entry['user_login'] for entry in csv_entries)
+
+    changes = find_user_differences(csv_entries, ipa_entries)
+    changes['group-add'] = find_group_changes(changes)
 
     if not any(changes.itervalues()):
         print('No changes.')
@@ -125,17 +161,11 @@ def main(filename):
         if answer.lower() == 'n':
             exit(2)
         elif answer.lower() == 'y':
-            # order of operations is important
-            for command in ['user-add', 'user-mod', 'group-add',
-                            'group-add-member', 'group-remove-member']:
-                for primary_key, args in changes[command].iteritems():
-                    subprocess.call(['ipa', '--no-prompt', command, primary_key]
-                                    + args  )
+            commit_changes(changes)
             exit(0)
         elif answer.lower() == 'd':
             import json
             print(json.dumps(changes, indent=2))
-
 
 
 if __name__ == '__main__':
