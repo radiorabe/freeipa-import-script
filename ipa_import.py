@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 from __future__ import print_function, unicode_literals
 
@@ -9,6 +9,30 @@ import re
 import subprocess
 import sys
 import unicodedata
+
+# COMPAT
+if sys.version_info.major == 2:
+    from io import open
+    input = raw_input
+    def csv_reader(unicode_csv_data, **kwargs):
+        # csv.py doesn't do know encodings; encode temporarily as latin-1:
+        reader = csv.reader(latin_1_encoder(unicode_csv_data), **kwargs)
+        for row in reader:
+            # decode back to Unicode, cell by cell:
+            yield [unicode(cell, 'latin-1') for cell in row]
+
+    def latin_1_encoder(unicode_csv_data):
+        for line in unicode_csv_data:
+            yield line.encode('latin-1')
+
+    def iteritems(d):
+        for tpl in d.iteritems():
+            yield tpl
+else:
+    from csv import reader as csv_reader
+    def iteritems(d):
+        for tpl in d.items():
+            yield tpl
 
 
 _groupname_strip_re = re.compile(r'[^A-Za-z0-9_/-]')
@@ -53,10 +77,10 @@ DEV_NULL = open(os.devnull, 'wb')
 
 def read_csv_file(filename):
     """Read the contents of a CVS file into a dict"""
-    with open(filename) as file:
-        csv_reader = csv.reader(file)
-        next(csv_reader)  # skip header
-        for line in csv_reader:
+    with open(filename, encoding='latin-1') as file:
+        reader = csv_reader(file)
+        next(reader)  # skip header
+        for line in reader:
             entry = {}
             for key in CSV_MAP:
                 entry[key] = line[CSV_MAP[key]]
@@ -182,7 +206,7 @@ def commit_changes(changes):
     # order of operations is important
     for command in ['user-add', 'user-mod', 'group-add',
                     'group-add-member', 'group-remove-member']:
-        for primary_key, args in changes[command].iteritems():
+        for primary_key, args in iteritems(changes[command]):
             subprocess.call(['ipa', '--no-prompt', command, primary_key]
                             + args  )
 
@@ -197,7 +221,7 @@ def main(filename):
     changes = find_user_differences(csv_entries, ipa_entries)
     changes['group-add'] = find_group_changes(changes, group_descriptions)
 
-    if not any(changes.itervalues()):
+    if not any(changes.values()):
         print('No changes.')
         exit()
 
@@ -211,7 +235,7 @@ def main(filename):
           .format(len(changes['group-remove-member'])))
     print()
     while True:
-        answer = raw_input('Accept changes [y], abort [n], show details [d]: ')
+        answer = input('Accept changes [y], abort [n], show details [d]: ')
         if answer.lower() == 'n':
             exit(2)
         elif answer.lower() == 'y':
