@@ -147,7 +147,7 @@ def find_user_differences(csv_entries, ipa_entries):
                 changes['user-mod'][user] = user_changes
         else:
             changes['user-add'][user] = \
-                ['--{0}={1}'.format(cmdline_key, new.get(key, ''))
+                ['--{0}={1}'.format(cmdline_key, new.get(key, '').strip())
                  for key, cmdline_key in IPA_CMDLINE_MAP.items()]
 
         old_groups = set(
