@@ -64,6 +64,7 @@ def read_csv_file(filename):
 
 
 def fix_csv_group_names(entries):
+    group_descriptions = {}
     for entry in entries:
         original_group_name = entry['member_of_groups'].strip(' ' + GROUP_SEP)
 
@@ -82,6 +83,11 @@ def fix_csv_group_names(entries):
         group_name = _groupname_strip_re.sub('', group_name)
         group_names = group_name.split(GROUP_SEP)
         entry['member_of_groups'] = group_names
+        group_descriptions.update(zip(group_names,
+                                      original_group_name.split(GROUP_SEP)))
+    return group_descriptions
+
+
 def parse_freeipa_output(output):
     """Parse the output from the FreeIPA command line tool"""
     entry = {}
@@ -144,13 +150,14 @@ def find_user_differences(csv_entries, ipa_entries):
     return changes
 
 
-def find_group_changes(user_changes):
+def find_group_changes(user_changes, group_descriptions):
     """Find newly added groups in changes"""
     changes = collections.defaultdict(list)
     for group in user_changes['group-add-member']:
         if subprocess.call(['ipa', 'group-show', group],
                            stdout=DEV_NULL, stderr=DEV_NULL) != 0:
-            changes[group] = []
+            changes[group] = ['--desc={}'.format(group_descriptions[group])] \
+                             if group in group_descriptions else []
     return changes
 
 
@@ -166,11 +173,11 @@ def commit_changes(changes):
 
 def main(filename):
     csv_entries = list(read_csv_file(filename))
-    fix_csv_group_names(csv_entries)
+    group_descriptions = fix_csv_group_names(csv_entries)
     ipa_entries = query_ipa(entry['user_login'] for entry in csv_entries)
 
     changes = find_user_differences(csv_entries, ipa_entries)
-    changes['group-add'] = find_group_changes(changes)
+    changes['group-add'] = find_group_changes(changes, group_descriptions)
 
     if not any(changes.itervalues()):
         print('No changes.')
