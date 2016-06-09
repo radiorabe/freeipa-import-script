@@ -95,6 +95,15 @@ def fix_csv_emails(entries):
             entry['email_address'] = email.split(';')[0]
 
 
+def fix_csv_zero_entries(entries, fields=('email_address',
+                                          'telephone_number',
+                                          'mobile_telephone_number')):
+    for entry in entries:
+        for field in fields:
+            if entry[field].strip() == '0':
+                entry[field] = ''
+
+
 def parse_freeipa_output(output):
     """Parse the output from the FreeIPA command line tool"""
     entry = {}
@@ -182,6 +191,7 @@ def main(filename):
     csv_entries = list(read_csv_file(filename))
     group_descriptions = fix_csv_group_names(csv_entries)
     fix_csv_emails(csv_entries)
+    fix_csv_zero_entries(csv_entries)
     ipa_entries = query_ipa(entry['user_login'] for entry in csv_entries)
 
     changes = find_user_differences(csv_entries, ipa_entries)
