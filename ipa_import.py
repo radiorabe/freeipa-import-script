@@ -157,9 +157,9 @@ def find_user_differences(csv_entries, ipa_entries):
             list(filter(bool, new.get('member_of_groups', [])))
             + DEFAULT_GROUPS
         )
-        for group in new_groups - old_groups:
+        for group in new_groups - old_groups:  # Users that got added to a group
             changes['group-add-member'][group].append('--users={}'.format(user))
-        for group in old_groups - new_groups:
+        for group in old_groups - new_groups:  # Users that got removed from a group
             changes['group-remove-member'][group]\
                 .append('--users={}'.format(user))
 
@@ -219,7 +219,7 @@ def main(filename):
             exit(0)
         elif answer.lower() == 'd':
             import json
-            print(json.dumps(changes, indent=2))
+            print(json.dumps(changes, indent=2, sort_keys=True))
 
 
 if __name__ == '__main__':
