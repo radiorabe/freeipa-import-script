@@ -88,6 +88,13 @@ def fix_csv_group_names(entries):
     return group_descriptions
 
 
+def fix_csv_emails(entries):
+    for entry in entries:
+        email = entry['email_address']
+        if ';' in email:
+            entry['email_address'] = email.split(';')[0]
+
+
 def parse_freeipa_output(output):
     """Parse the output from the FreeIPA command line tool"""
     entry = {}
@@ -174,6 +181,7 @@ def commit_changes(changes):
 def main(filename):
     csv_entries = list(read_csv_file(filename))
     group_descriptions = fix_csv_group_names(csv_entries)
+    fix_csv_emails(csv_entries)
     ipa_entries = query_ipa(entry['user_login'] for entry in csv_entries)
 
     changes = find_user_differences(csv_entries, ipa_entries)
