@@ -28,6 +28,8 @@ if sys.version_info.major == 2:
     def iteritems(d):
         for tpl in d.iteritems():
             yield tpl
+
+    str = unicode
 else:
     from csv import reader as csv_reader
     def iteritems(d):
@@ -128,9 +130,10 @@ def fix_csv_zero_entries(entries, fields=('email_address',
                 entry[field] = ''
 
 
-def parse_freeipa_output(output):
+def parse_freeipa_output(output, encoding='utf-8'):
     """Parse the output from the FreeIPA command line tool"""
     entry = {}
+    output = str(output, encoding=encoding)
     for line in output.strip().split('\n'):
         key, val = line.split(':', 1)
         entry[key.strip().lower().replace(' ', '_')] = val.strip()
