@@ -164,7 +164,15 @@ def fix_ipa_groups(entries):
 
 
 def find_user_differences(csv_entries, ipa_entries):
-    """"""
+    """Calculate changes between existing users (ipa_entries) and new users
+    (csv_entries).
+
+    Returns a dict with all modifications.
+     - Modified users
+     - Added users
+     - Users added to groups
+     - Users removed from groups
+    """
     changes = {
         'user-mod': {},
         'user-add': {},
@@ -200,7 +208,8 @@ def find_user_differences(csv_entries, ipa_entries):
 
 
 def find_group_changes(user_changes, group_descriptions):
-    """Find newly added groups in changes"""
+    """Find newly added groups in changes and returns a list of newly added
+    groups"""
     changes = collections.defaultdict(list)
     for group in user_changes['group-add-member']:
         if subprocess.call(['ipa', 'group-show', group],
