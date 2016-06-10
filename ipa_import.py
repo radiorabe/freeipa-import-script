@@ -44,7 +44,7 @@ _groupname_strip_re = re.compile(r'[^A-Za-z0-9_/-]')
 ##################
 
 # Groups that users get added to automatically
-DEFAULT_GROUPS = ['ipausers']
+DEFAULT_GROUPS = set(['ipausers'])
 
 # Character that separates groups in csv field
 GROUP_SEP = '/'
@@ -108,7 +108,9 @@ def fix_csv_group_names(entries):
         # Strip all remaining illegal characters
         group_name = _groupname_strip_re.sub('', group_name)
         group_names = group_name.split(GROUP_SEP)
-        entry['member_of_groups'] = group_names
+        entry['member_of_groups'] = set(
+            group for group in group_names if group != ''
+        )
         group_descriptions.update(zip(group_names,
                                       original_group_name.split(GROUP_SEP)))
     return group_descriptions
@@ -152,6 +154,15 @@ def query_ipa(usernames):
             yield {}
 
 
+def fix_ipa_groups(entries):
+    for entry in entries:
+        entry['member_of_groups'] = set(
+            group for group in entry['member_of_groups'].split(', ')
+                  if group != ''
+        )
+        yield entry
+
+
 def find_user_differences(csv_entries, ipa_entries):
     """"""
     changes = {
@@ -177,13 +188,8 @@ def find_user_differences(csv_entries, ipa_entries):
                 ['--{0}={1}'.format(cmdline_key, new.get(key, '').strip())
                  for key, cmdline_key in IPA_CMDLINE_MAP.items()]
 
-        old_groups = set(
-            filter(bool, old.get('member_of_groups', '').split(', '))
-        )
-        new_groups = set(
-            list(filter(bool, new.get('member_of_groups', [])))
-            + DEFAULT_GROUPS
-        )
+        old_groups = old.get('member_of_groups', set()) | DEFAULT_GROUPS
+        new_groups = new.get('member_of_groups', set()) | DEFAULT_GROUPS
         for group in new_groups - old_groups:  # Users that got added to a group
             changes['group-add-member'][group].append('--users={}'.format(user))
         for group in old_groups - new_groups:  # Users that got removed from a group
@@ -220,6 +226,7 @@ def main(filename):
     fix_csv_emails(csv_entries)
     fix_csv_zero_entries(csv_entries)
     ipa_entries = query_ipa(entry['user_login'] for entry in csv_entries)
+    ipa_entries = fix_ipa_groups(ipa_entries)
 
     changes = find_user_differences(csv_entries, ipa_entries)
     changes['group-add'] = find_group_changes(changes, group_descriptions)
