@@ -95,10 +95,10 @@ def fix_csv_group_names(entries):
         original_group_name = entry['member_of_groups'].strip(' ' + GROUP_SEP)
 
         # Replace spaces and tabs with underscores
-        group_name = '_'.join(original_group_name.split())
+        group_name = '_'.join(original_group_name.split()).lower()
 
         # Replace umlaut characters
-        for umlaut, replacement in zip('äöüÄÖÜ', 'ae oe ue Ae Oe Ue'.split()):
+        for umlaut, replacement in zip('äöü', 'ae oe ue'.split()):
             group_name = group_name.replace(umlaut, replacement)
 
         # Strip remaining diacritical marks
