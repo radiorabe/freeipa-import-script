@@ -156,10 +156,11 @@ def query_ipa(usernames):
 
 def fix_ipa_groups(entries):
     for entry in entries:
-        entry['member_of_groups'] = set(
-            group for group in entry['member_of_groups'].split(', ')
-                  if group != ''
-        )
+        if 'member_of_groups' in entry:
+            entry['member_of_groups'] = set(
+                group for group in entry['member_of_groups'].split(', ')
+                      if group != ''
+            )
         yield entry
 
 
